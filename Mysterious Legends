@@ -1,0 +1,816 @@
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <map>
+#include <utility>
+#include <concepts>
+using namespace std;
+class PhysicalItem;
+class Weapon;
+class Potion;
+class Spell;
+class Archer;
+class Character{
+    friend class PhysicalItem;
+public:
+    int healthPoints;
+    string name;
+    string type;
+    Character(int n_hp, string n_name, string n_type){
+        this->name = n_name;
+        this->healthPoints = n_hp;
+        this->type = n_type;
+    }//constructor
+    ~Character(){
+        this->name = "";
+        this->healthPoints = 0;
+    }
+    void takeDamage(int damage){
+        healthPoints = healthPoints - damage;
+    }// give damage
+    void heal(int healValue){
+        healthPoints = healthPoints+healValue;
+    }//give hp
+    string getName(){
+        return name;
+    }// give name
+    int getHP(){
+        return healthPoints;
+    }//show hp
+    void obtainItemSideEffectA(shared_ptr<Weapon> item);
+    void obtainItemSideEffectP(shared_ptr<Potion> item);
+    void obtainItemSideEffectS(shared_ptr<Spell> item);
+    void loseItemSideEffectA(shared_ptr<Weapon> item);
+    void loseItemSideEffectP(shared_ptr<Potion> item);
+    void loseItemSideEffectS(shared_ptr<Spell> item);
+    void showWeapons();
+    void showPotion();
+    void showSpell();
+    void print(string speech){
+        cout<<name<<": "<<speech;
+    }
+    virtual void h(){};
+};
+class PhysicalItem{
+    friend class Character;
+public:
+    bool isUsableOnce;
+    shared_ptr<Character> owner;
+    string name;
+    string type;
+    string getName(){
+        return name;
+    }
+     PhysicalItem(bool n_isUsableOnce, shared_ptr<Character> n_owner,std::string n_name){
+        this->isUsableOnce = n_isUsableOnce;
+        this->owner = n_owner;
+        this->name = n_name;
+    }//constructor
+    ~PhysicalItem()=default;
+    void print (){
+    }
+};
+class Weapon:public PhysicalItem{
+private:
+    int damage;
+public:
+    string getName(){
+        return name;
+    }// give name
+    int getDamage(){
+        return damage;
+    }//give damage
+    void userLogic(shared_ptr<Character> user,shared_ptr<Character> target){
+        cout<<user->getName()<<" attacks "<< target->getName()<<" with their "<<name<<"!"<<endl;
+    };//text generator
+    void print(){
+        cout<<owner->getName()<<" just obtained a new weapon called "<<name<<"."<<endl;
+    }// text generator
+    Weapon(shared_ptr<Character> nOwner, std::string nName, int n_damage) : PhysicalItem(0, nOwner, nName) {
+        this->damage=n_damage;
+        this->type = "Weapon";
+    }//constructor
+    ~Weapon()= default;
+};
+class Potion:public PhysicalItem{
+private:
+    int healValue;
+public:
+    int getHealValue(){
+        return healValue;
+    }// give hp of person
+    void userLogic(Character user, Character target){
+        cout<<target.getName()<<" drinks "<<name<<" from "<< user.getName()<<"."<<endl;
+    }// text generator
+    void print(){
+        cout<<owner->getName()<<" just obtained a new potion called "<<name<<"."<<endl;
+    }//text genetator
+
+    Potion(shared_ptr<Character> nOwner, std::string nName, int n_healValue) : PhysicalItem(1, nOwner, nName) {
+        this->healValue = n_healValue;
+    }//constructor
+    ~Potion()= default;
+};
+class Spell : public PhysicalItem{
+private:
+    int m;
+    shared_ptr<Character> allowedTargets[50];
+public:
+    bool findtarget(string target){
+        for (shared_ptr<Character> it :allowedTargets){
+            if (it!=NULL) {
+                if (it->getName() == target) {
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }// check target in list
+    int getNumAllowedTargets(){
+        return m;
+    }// return m
+    void userLogic(Character user, Character target){
+        cout<<user.getName()<<" casts "<<name<<" on "<<target.getName()<<"!"<<endl;
+    }//text generator
+    void print(){
+        cout<<owner->getName()<<" just obtained a new spell called "<<name<<"."<<endl;
+    }//text generator
+    Spell(shared_ptr<Character> nOwner, std::string nName, int n_m, vector<shared_ptr<Character>> n_allowedTargets)
+            : PhysicalItem(1, nOwner, nName){
+        this->m = n_m;
+        for (int i=0;i<m;i++){
+            this->allowedTargets[i] = n_allowedTargets[i];
+        }
+    }//constructor
+    ~Spell()= default;
+};
+template <typename T>
+class Container {
+public:
+    Container(){
+    }
+    ~Container(){
+    }
+};//constructor
+template <typename T>
+concept DerivedFromPhysicalItem = is_base_of<PhysicalItem, T>::value;
+
+template<DerivedFromPhysicalItem T>
+class Container<T> {
+public:
+    int maxCapacity;
+    map<string, shared_ptr<T>> element;
+    map<string, shared_ptr<T>>::iterator it;
+    void addItem(string name,shared_ptr<T> newItem){
+        element.emplace(name, newItem);
+    }// use to add in map
+    void removeItem(string name){
+        element.erase(name);
+    }// use to remove in map
+    bool find(string item){
+        return (element.contains(item));
+    }// use ro find in map
+    vector<T> show(){
+        int k=0;
+        vector<T> equip;
+        for (it = element.begin(); it!=element.end();it++){
+            equip[k] = *it->second;
+            k+=1;
+        }
+        return equip;
+    }// use to show element in vector
+    map<string, shared_ptr<T>> show1(){
+        return element;
+    }// use to show element
+    Container(int n){
+        this->maxCapacity = n;
+    }// constructor
+
+
+};
+using Arsenal = Container<Weapon>;// container with Weapon
+using MedicalBag = Container<Potion>;// container with Potion
+using Spellbook = Container<Spell>;// container with spell
+class Fighter: public Character{
+public:
+    int maxAllowedWeapons=3;
+    int maxAllowedPotions=5;
+    Arsenal arsenal = Arsenal (maxAllowedWeapons);
+    MedicalBag medicalBag = MedicalBag (maxAllowedPotions);
+    Fighter(int nHp, string nName, string ntype) : Character(nHp, nName, ntype) {
+    }//constructor
+    ~Fighter()= default;
+    void obtainItemSideEffectA(shared_ptr<Weapon> Item)  {
+            arsenal.addItem(Item->getName(), Item);
+    }// use to add Item
+    void obtainItemSideEffectP(shared_ptr<Potion> Item)  {
+            medicalBag.addItem(Item->getName(), Item);
+    }// use to add Item
+    void obtainItemSideEffectS(shared_ptr<Spell> Item) {
+        cout<<"Error caught"<<endl;
+    };// use to add Item
+    void loseItemSideEffectA(shared_ptr<Weapon> Item) {
+            arsenal.removeItem(Item->getName());
+    }// use to delete Item
+    void loseItemSideEffectP(shared_ptr<Potion> Item){
+            medicalBag.removeItem(Item->getName());
+    }// use to delete Item
+    void loseItemSideEffecctS(shared_ptr<Potion> Item){};// use to delete Item
+    void attack(shared_ptr<Character> target, string weaponName){
+        if (arsenal.find(weaponName)){
+            int damage = arsenal.element.at(weaponName)->getDamage();
+            target->takeDamage(damage);
+            arsenal.element.at(weaponName)->userLogic( arsenal.element.at(weaponName)->owner,target);
+        }
+    }// use to attack target
+    void drink(shared_ptr<Character> target, string potionName){
+        if(medicalBag.find(potionName)){
+            int heal = medicalBag.element.at(potionName)->getHealValue();
+            target->heal(heal);
+            cout<<target->getName()<<" drinks "<<potionName<<" from "<<name<<"."<<endl;
+            medicalBag.element.erase(potionName);
+        }
+    }//drink Potion
+    void showWeapons() {
+        if (arsenal.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: arsenal.show1()) {
+                cout << it.second->getName() << ":" << it.second->getDamage() << " ";
+            }
+            cout<<endl;
+        }
+    }//show Weapon
+    void showPotion(){
+        if (medicalBag.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: medicalBag.show1()) {
+                cout << it.second->getName() << ":" << it.second->getHealValue() << " ";
+            }
+            cout<<endl;
+        }
+    }// show Potion
+    void showSpell(){
+        cout<<"Error caught"<<endl;
+    };// say that do not have spell
+    void creat(){
+        cout<<"A new fighter came to town, "<<this->getName()<<"."<<endl;
+    }//generator text
+};
+class Archer: public Character{
+public:
+    int maxAllowedWeapons=2;
+    int maxAllowedPotions=3;
+    int maxAllowedSpells=2;
+    Arsenal arsenal = Arsenal (maxAllowedWeapons);
+    MedicalBag medicalBag = MedicalBag (maxAllowedPotions);
+    Spellbook spellbook = Spellbook (maxAllowedSpells);
+    Archer(int nHp, string nName, string ntype) : Character(nHp, nName, ntype) {};//constructor
+    ~Archer() = default;
+    void attack(shared_ptr<Character> target, string weaponName){
+        if (arsenal.find(weaponName)){
+            int damage = arsenal.element.at(weaponName)->getDamage();
+            target->takeDamage(damage);
+            arsenal.element.at(weaponName)->userLogic(arsenal.element.at(weaponName)->owner,target);
+        }
+    }// use for attack to target
+    void drink(shared_ptr<Character> target, string potionName){
+        if(medicalBag.find(potionName)){
+            int heal = medicalBag.element.at(potionName)->getHealValue();
+            target->heal(heal);
+            cout<<target->getName()<<" drinks "<<potionName<<" from "<<name<<"."<<endl;
+            medicalBag.element.erase(potionName);
+        }
+    }// drink Potion
+    bool cast(shared_ptr<Character> target, string spellName) {
+        if (spellbook.find(spellName)) {
+            if (spellbook.element.at(spellName)->findtarget(target->getName())) {
+                target->takeDamage(target->getHP());
+                cout << name << " casts " << spellName << " on " << target->getName() <<"!"<< endl;
+                spellbook.removeItem(spellName);
+                return 1;
+            } else {
+                cout << "Error caught" << endl;
+            }
+        } else {
+            cout << "Error caught" << endl;
+        }
+        return 0;
+    }// cast spell
+
+    void obtainItemSideEffectA(shared_ptr<Weapon> Item)  {
+        arsenal.addItem(Item->getName(), Item);
+    }//add element
+    void obtainItemSideEffectP(shared_ptr<Potion> Item) {
+        medicalBag.addItem(Item->getName(), Item);
+    }//add element
+    void loseItemSideEffectA(shared_ptr<Weapon> Item) {
+        arsenal.removeItem(Item->getName());
+    }//delete element
+    void loseItemSideEffectP(shared_ptr<Potion> Item){
+        medicalBag.removeItem(Item->getName());
+    }//delete element
+    void obtainItemSideEffectS(shared_ptr<Spell> Item) {
+            spellbook.addItem(Item->getName(), Item);
+    }//add element
+    void loseItemSideEffectS(shared_ptr<Spell> Item){
+            spellbook.removeItem(Item->getName());
+    }//delete element
+    void showWeapons()  {
+        if (arsenal.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: arsenal.show1()) {
+                cout << it.second->getName() << ":" << it.second->getDamage() << " ";
+            }
+            cout<<endl;
+        }
+    }// show Weapon
+    void showPotion()  {
+        if (medicalBag.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: medicalBag.show1()) {
+                cout << it.second->getName() << ":" << it.second->getHealValue() << " ";
+            }
+            cout<<endl;
+        }
+    }//show potion
+    void showSpell() {
+        if (spellbook.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: spellbook.show1()) {
+
+                cout << it.second->getName() << ":" << it.second->getNumAllowedTargets() << " ";
+            }
+            cout<<endl;
+        }
+    }// show spell
+    void creat(){
+        cout<<"A new archer came to town, "<<this->getName()<<"."<<endl;
+    }// generator text
+};
+class Wizard:public Character{
+public:
+    int maxAllowedPotions=10;
+    int maxAllowedSpells=10;
+    MedicalBag medicalBag = MedicalBag (maxAllowedPotions);
+    Spellbook spellbook = Spellbook (maxAllowedSpells);
+    void drink(shared_ptr<Character> target, string potionName){
+        if(medicalBag.find(potionName)){
+            int heal = medicalBag.element.at(potionName)->getHealValue();
+            target->heal(heal);
+            cout<<target->getName()<<" drinks "<<potionName<<" from "<<name<<"."<<endl;
+            medicalBag.element.erase(potionName);
+        }
+    }// drink potion
+    void obtainItemSideEffectP(shared_ptr<Potion> Item) {
+        medicalBag.addItem(Item->getName(), Item);
+    }// add
+    void loseItemSideEffectP(shared_ptr<Potion> Item){
+        medicalBag.removeItem(Item->getName());
+    }// add
+    void obtainItemSideEffectS(shared_ptr<Spell> Item) {
+        spellbook.addItem(Item->getName(), Item);
+    }// add
+    void loseItemSideEffectS(shared_ptr<Spell> Item){
+        spellbook.removeItem(Item->getName());
+    }// add
+    void obtainItemSideEffectA(shared_ptr<Weapon> Item)  {
+        cout<<"Error caught"<<endl;
+    }// add
+    void showWeapons(){
+        cout<< "Error caught"<<endl;
+    }// say that do not have weapon
+    Wizard(int nHp, string nName, string ntype) : Character(nHp, nName, ntype) {};// constructor
+    ~Wizard()= default;
+    void showPotion() {
+        if (medicalBag.show1().empty()) {
+            cout << endl;
+        } else {
+
+            for (auto it: medicalBag.show1()) {
+                cout << it.second->getName() << ":" << it.second->getHealValue() << " ";
+            }
+            cout<<endl;
+        }
+    }// show Potion
+    void showSpell(){
+        if (spellbook.show1().empty()){
+            cout<<endl;
+        }else {
+            for (auto it: spellbook.show1()) {
+
+                cout << it.second->getName() << ":" << it.second->getNumAllowedTargets() << " ";
+            }
+            cout<<endl;
+        }
+    }//show Spell
+    void creat(){
+        cout<<"A new wizard came to town, "<<this->getName()<<"."<<endl;
+    }//generator text
+    bool cast(shared_ptr<Character> target, string spellName){
+        if (spellbook.find(spellName)){
+            if (spellbook.element.at(spellName)->findtarget(target->getName())) {
+                target->takeDamage(target->getHP());
+                cout << name <<" casts "<< spellName << " on "<<target->getName()<<"!"<<endl;
+                spellbook.removeItem(spellName);
+                return 1;
+            }else {
+                cout << "Error caught" << endl;
+            }
+        }else {
+            cout << "Error caught" << endl;
+        }
+        return 0;
+    }// cast spell
+
+};
+bool check(int heal){
+    if (heal<=0){
+        return 0;
+    }
+    return 1;
+}// show that number bigger than 0
+bool check_num_F(shared_ptr<Fighter> owner, string name){
+    if (name=="weapon"){
+        return (owner->arsenal.element.size()!=owner->maxAllowedWeapons);
+    }
+    if (name=="potion"){
+        return (owner->medicalBag.element.size()!=owner->maxAllowedPotions);
+    }
+}// prove that we have space
+bool check_num_Ar(shared_ptr<Archer> owner, string name){
+    if (name=="spell"){
+        return (owner->spellbook.element.size()!=owner->maxAllowedSpells);
+    }
+    if (name=="weapon"){
+        return (owner->arsenal.element.size()!=owner->maxAllowedWeapons);
+    }
+    if (name=="potion"){
+        return (owner->medicalBag.element.size()!=owner->maxAllowedPotions);
+    }
+}// prove that we have space
+bool check_num_W(shared_ptr<Wizard> owner, string name){
+    if (name=="spell"){
+        return (owner->spellbook.element.size()!=owner->maxAllowedSpells);
+    }
+    if (name=="potion"){
+        return (owner->medicalBag.element.size()!=owner->maxAllowedPotions);
+    }
+}// prove that we have space
+int main() {
+    map<string,shared_ptr<Character>> characters;
+    shared_ptr<Character> out = shared_ptr<Character>(new Fighter(1000000000, "Narrator","fighter"));
+
+    characters.emplace("Narrator",out);
+    int n;
+    string word1;
+    string word;
+    string word2;
+    string word3;
+    string name1;
+    string name2;
+    string name3;
+    int damage;
+    int number_word;
+    shared_ptr<Character> curCharacter;
+    freopen("input.txt", "r", stdin);
+    freopen("output.txt", "w", stdout);
+    cin >> n;
+    for (int num = 0; num < n; num++) {
+        cin >> word1;
+        if (word1 == "Create") {
+            cin >> word2;
+            if (word2 == "character") {
+                cin >> word3;
+                cin >> name1;
+                cin >> damage;
+                if (word3 == "fighter") {
+                    characters.emplace(name1, make_shared<Fighter>(Fighter(damage, name1, "fighter")));
+                } else if (word3 == "wizard") {
+                    characters.emplace(name1, make_shared<Wizard>(Wizard(damage, name1, "wizard")));
+                } else if (word3 == "archer") {
+                    characters.emplace(name1, make_shared<Archer>(Archer(damage, name1, "archer")));
+                }
+                cout << "A new " << word3 << " came to town, " << name1 << ".\n";
+            }
+            if (word2 == "item") {
+                cin >> word3;
+                cin >> name1;
+                cin >> name2;
+                cin >> damage;
+                if (characters.contains(name1)) {
+                    curCharacter = characters.at(name1);
+                    if ((word3 == "weapon")) {
+                        if ((check(damage))) {
+                            if (curCharacter->type == "fighter") {
+                                Weapon curWeapon = (Weapon(curCharacter, name2, damage));
+                                shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(name1));
+                                if (check_num_F(ar, "weapon")) {
+                                    ar->arsenal.addItem(name2, make_shared<Weapon>(
+                                            curWeapon));
+                                    curWeapon.print();
+                                } else cout << "Error caught" << endl;
+                            } else if (curCharacter->type == "archer") {
+                                shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                                Weapon curWeapon = (Weapon(curCharacter, name2, damage));
+                                if (check_num_Ar(ar, "weapon")) {
+                                    dynamic_pointer_cast<Archer>(curCharacter)->arsenal.addItem(name2,
+                                                                                                make_shared<Weapon>(
+                                                                                                        curWeapon));
+                                    curWeapon.print();
+                                } else cout << "Error caught" << endl;
+                            }else{ cout << "Error caught" << endl;}
+                        } else cout << "Error caught"<<endl;
+                    }
+                    else if (word3 == "potion") {
+                        if ((check(damage))) {
+                            Potion curPotion(curCharacter, name2, damage);
+                            if (curCharacter->type == "fighter") {
+                                shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(name1));
+                                if (check_num_F(ar, "potion")) {
+                                    ar->obtainItemSideEffectP(make_shared<Potion>(curPotion));
+                                    curPotion.print();
+                                }else{
+                                    cout << "Error caught"<<endl;
+                                }
+                            }
+                            if (curCharacter->type == "archer") {
+                                shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                                if (check_num_Ar(ar, "potion")) {
+                                    ar->obtainItemSideEffectP(make_shared<Potion>(curPotion));
+                                    curPotion.print();
+                                }else{
+                                    cout << "Error caught"<<endl;
+                                }
+                            }
+                            if (curCharacter->type == "wizard") {
+                                shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(name1));
+                                if (check_num_W(ar, "potion")) {
+                                    ar->obtainItemSideEffectP(make_shared<Potion>(curPotion));
+                                    curPotion.print();
+                                }else{
+                                    cout << "Error caught"<<endl;
+                                }
+                            }
+                        }else{
+                            cout << "Error caught"<<endl;
+                        }
+                    }
+                    else if (word3 == "spell") {
+                        vector<shared_ptr<Character>> all(damage);
+                        string nameCharacter;
+                        int k=0;
+                        all.clear();
+                        for (int n = 0; n < damage; n++) {
+                            cin >> nameCharacter;
+                            if (characters.contains(nameCharacter)) {
+                                k+=1;
+                                all.push_back(characters.at(nameCharacter));
+                            }
+                        }
+                        if (k!=damage){
+                            cout<< "Error caught"<<endl;
+                        }else {
+                            if ((curCharacter->type == "wizard")) {
+                                shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(name1));
+                                Spell curSpell(curCharacter, name2, damage, all);
+                                if (check_num_W(ar, "spell")) {
+                                    ar->obtainItemSideEffectS(make_shared<Spell>(curSpell));
+                                    curSpell.print();
+                                } else cout << "Error caught" << endl;
+                            } else if ((curCharacter->type == "archer")) {
+                                shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                                Spell curSpell(curCharacter, name2, damage, all);
+                                if (check_num_Ar(ar, "spell")) {
+                                    ar->obtainItemSideEffectS(make_shared<Spell>(curSpell));
+                                    curSpell.print();
+                                } else cout << "Error caught" << endl;
+                            } else cout << "Error caught" << endl;
+                        }
+                    }
+                } else {
+                    if (word3 == "spell"){
+                        string nameCharacter;
+                        for (int n = 0; n < damage; n++) {
+                            cin >> nameCharacter;
+                        }
+                    }
+                    cout << "Error caught"<<endl;
+                }
+
+
+            }
+        }// create person and Item
+        if (word1 == "Show") {
+            cin >> word2;
+            if (word2 == "characters") {
+                map<string, shared_ptr<Character>>::iterator it;
+                for (it = characters.begin(); it != characters.end(); it++) {
+                    if (it->second->getName()!="Narrator") {
+                        cout << it->second->getName() << ":" << it->second->type << ":" << it->second->healthPoints
+                             << " ";
+                    }
+                }
+                cout<<endl;
+
+            }
+            else if (word2 == "weapons") {
+                cin >> word3;
+                if (characters.contains(word3)) {
+                    if (characters.at(word3)->type == "fighter") {
+                        shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(word3));
+                        ar->showWeapons();
+                    }
+                        else if (characters.at(word3)->type == "archer") {
+                            shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(word3));
+                            ar->showWeapons();
+                        }else {
+                        cout << "Error caught" << endl;
+                    }
+                }else {
+                    cout << "Error caught" << endl;
+                }
+            }
+            else if (word2 == "potions") {
+                    cin >> word3;
+                    if (characters.contains(word3)) {
+                        if (characters.at(word3)->type == "fighter") {
+                            shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(word3));
+                            ar->showPotion();
+                        } else if (characters.at(word3)->type == "archer") {
+                            shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(word3));
+                            ar->showPotion();
+                        } else if (characters.at(word3)->type == "wizard") {
+                            shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(word3));
+                            ar->showPotion();
+
+                        } else {
+                            cout << "Error caught"<<endl;
+                        }
+                    }else {
+                        cout << "Error caught" << endl;
+                    }
+                }
+            else if (word2=="spells") {
+                    cin >> word3;
+                    if (characters.contains(word3)) {
+                        if (characters.contains(word3)) {
+                            if (characters.at(word3)->type == "archer") {
+                                shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(word3));
+                                ar->showSpell();
+                            }
+                            else if (characters.at(word3)->type == "wizard") {
+                                shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(word3));
+                                ar->showSpell();
+
+                            } else {
+                                cout << "Error caught"<<endl;
+                            }
+                        }
+                    } else {
+                        cout << "Error caught"<<endl;
+                    }
+                } else {
+                    cout << "Error caught"<<endl;
+                }
+            }// show characters and Item
+        if (word1 == "Dialogue") {
+            cin >> word2;
+            if (characters.contains(word2)) {
+                cin >> number_word;
+                cout << characters.at(word2)->getName() << ": ";
+                for (int n = 0; n < number_word; n++) {
+                    cin >> word3;
+                    cout << word3 << " ";
+                }
+                cout<<endl;
+            }else {
+                cin >> number_word;
+                cout << "Error caught" << endl;
+                for (int n = 0; n < number_word; n++) {
+                    cin >> word3;
+                }
+            }
+        }//give a speech
+        if (word1 == "Attack") {
+            cin >> name1;
+            cin >> name2;
+            cin >> name3;
+            if (characters.contains(name1)) {
+
+                if (characters.contains(name2)) {
+
+                    if (characters.at(name1)->type == "fighter") {
+                        shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(name1));
+                        if (ar->arsenal.element.contains(name3)) {
+                            ar->attack(characters.at(name2), ar->arsenal.element.at(name3)->getName());
+                            if (characters.at(name2)->getHP() <= 0) {
+                                characters.erase(name2);
+                                cout << name2 << " has died..." << endl;
+                            }
+                        }else {
+                            cout << "Error caught" << endl;
+                        }
+                    }else if (characters.at(name1)->type == "archer") {
+                            shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                            if (ar->arsenal.element.contains(name3)) {
+                                ar->attack(characters.at(name2), ar->arsenal.element.at(name3)->getName());
+                                if(characters.at(name2)->getHP()<=0){
+                                    characters.erase(name2);
+                                    cout<<name2<<" has died..."<<endl;
+                                }
+                            }else {
+                                cout << "Error caught" << endl;
+                            }
+                        }else{
+                        cout << "Error caught"<<endl;
+                    }
+                }else{
+                    cout << "Error caught"<<endl;
+                }
+            }else{
+                cout << "Error caught"<<endl;
+            }
+        }//attack target
+        if (word1 == "Cast") {
+            cin >> name1;
+            cin >> name2;
+            cin >> name3;
+            if (characters.contains(name1)) {
+
+                if (characters.contains(name2)) {
+
+                    if (characters.at(name1)->type == "wizard") {
+                        shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(name1));
+                        if (ar->spellbook.element.contains(name3)) {
+                            if (ar->cast(characters.at(name2), ar->spellbook.element.at(name3)->getName())){
+                            characters.erase(name2);
+                            cout << name2 << " has died..." << endl;}
+                        }else {
+                            cout << "Error caught" << endl;
+                        }
+                    }
+                    else if (characters.at(name1)->type == "archer") {
+                            shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                            if (ar->spellbook.element.contains(name3)) {
+                                if (ar->cast(characters.at(name2), ar->spellbook.element.at(name3)->getName())) {
+                                    characters.erase(name2);
+                                    cout << name2 << " has died..." << endl;
+                                }
+                            }else {
+                                cout << "Error caught" << endl;
+                            }
+                        }else{
+                        cout << "Error caught"<<endl;
+                    }
+                }else {
+                    cout << "Error caught" << endl;
+                }
+            }else {
+                cout << "Error caught" << endl;
+            }
+        }//use cast for target
+        if (word1 == "Drink") {
+            cin >> name1;
+            cin >> name2;
+            cin >> name3;
+            if (characters.contains(name1)) {
+                if (characters.contains(name2)) {
+                    if (characters.at(name1)->type == "fighter") {
+                        shared_ptr<Fighter> ar = dynamic_pointer_cast<Fighter>(characters.at(name1));
+                        if (ar->medicalBag.element.contains(name3)) {
+                            ar->drink(characters.at(name2), ar->medicalBag.element.at(name3)->getName());
+                        }else {
+                            cout << "Error caught" << endl;
+                        }
+                    }
+                    if (characters.at(name1)->type == "archer") {
+                        shared_ptr<Archer> ar = dynamic_pointer_cast<Archer>(characters.at(name1));
+                        if (ar->medicalBag.element.contains(name3)) {
+                            ar->drink(characters.at(name2), ar->medicalBag.element.at(name3)->getName());
+                        }else {
+                            cout << "Error caught" << endl;
+                        }
+                    }
+                    if (characters.at(name1)->type == "wizard") {
+                        shared_ptr<Wizard> ar = dynamic_pointer_cast<Wizard>(characters.at(name1));
+                        if (ar->medicalBag.element.contains(name3)) {
+                            ar->drink(characters.at(name2), ar->medicalBag.element.at(name3)->getName());
+                        }else {
+                            cout << "Error caught" << endl;
+                        }
+                    }
+                }else {
+                    cout << "Error caught" << endl;
+                }
+            }else {
+                cout << "Error caught" << endl;
+            }
+        }//drink potion
+    }
+    return 0;
+}
