@@ -1,0 +1,860 @@
+import java.io.*;
+import java.util.Scanner;
+import java.util.HashMap;
+import java.util.Map;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.System.exit;
+public final class Main {
+    private  static  Board boardgame = new Board();
+    public static void main(String[] args) throws FileNotFoundException, InvalidBoardSizeExepction,
+            InvalidNumberOfInsectsException, InvalidNumberOfFoodPointsException, InvalidEntityPositionException,
+            InvalidInsectColorException {
+        String command;
+        String outputPath = "output.txt";
+        PrintStream fout = new PrintStream(new FileOutputStream(outputPath));
+        System.setOut(fout);
+        String inputPath = "input.txt";
+        FileInputStream fin = new FileInputStream(inputPath);
+        System.setIn(fin);
+        Scanner scanner = new Scanner(System.in);
+        int boardSize = 0;
+        int numberOfInsects = 0;
+        int numberOfPintFood = 0;
+        try {
+            boardSize = Integer.parseInt(scanner.nextLine());
+            if ((boardSize < 4) || (boardSize > 1000)) {
+                System.out.println("Invalid board size");
+                exit(0);
+            }
+        } catch (NumberFormatException e) {
+            throw new InvalidBoardSizeExepction();
+        }
+        try {
+            numberOfInsects = Integer.parseInt(scanner.nextLine());
+            if ((numberOfInsects < 1) || (numberOfInsects > 16)) {
+                System.out.println("Invalid number of insects");
+                exit(0);
+            }
+        } catch (NumberFormatException e) {
+            throw new InvalidNumberOfInsectsException();
+        }
+        try {
+            numberOfPintFood = Integer.parseInt(scanner.nextLine());
+            if ((numberOfPintFood < 1) || (numberOfPintFood > 200)) {
+                System.out.println("Invalid number of food points");
+                exit(0);
+            }
+        } catch (NumberFormatException e) {
+            throw new InvalidNumberOfFoodPointsException();
+        }
+        String[] all = new String[17];
+        String[] pos = new String[numberOfInsects + numberOfPintFood];
+        Insect[] allInsect = new Insect[17];
+        for (int i = 0; i < numberOfInsects; i++) {
+            String color = scanner.next();
+            InsectColor color1 = InsectColor.toColor(color);
+            String type = scanner.next();
+            int coordinateX = Integer.parseInt(scanner.next());
+            int coordinateY = Integer.parseInt(scanner.next());
+            if (Inputs.checkEntityPosition(coordinateX, coordinateY, boardSize)) {
+                exit(0);
+            }
+            all[i] = color + " " + type;
+            pos[i] = coordinateX + " " + coordinateY;
+            if (i > 0) {
+                for (int g = 0; g < i; g++) {
+                    if (all[g].equals(all[i])) {
+                        System.out.println("Duplicate insects");
+                        exit(0);
+                    }
+                }
+            }
+            switch (type) {
+                case "Butterfly":
+                    EntityPosition butPos = new EntityPosition(coordinateX, coordinateY);
+                    Butterfly butterfly = new Butterfly(butPos, color);
+                    boardgame.addEntity(butterfly);
+                    allInsect[i] = butterfly;
+                    break;
+                case "Ant":
+                    EntityPosition antPos = new EntityPosition(coordinateX, coordinateY);
+                    Ant ant = new Ant(antPos, color);
+                    boardgame.addEntity(ant);
+                    allInsect[i] = ant;
+                    break;
+                case "Spider":
+                    EntityPosition spiPos = new EntityPosition(coordinateX, coordinateY);
+                    Spider spi = new Spider(spiPos, color);
+                    boardgame.addEntity(spi);
+                    allInsect[i] = spi;
+                    break;
+                case "Grasshopper":
+                    EntityPosition grasPos = new EntityPosition(coordinateX, coordinateY);
+                    Grasshopper gras = new Grasshopper(grasPos, color);
+                    boardgame.addEntity(gras);
+                    allInsect[i] = gras;
+                    break;
+                default:
+                    System.out.println("Invalid insect type");
+                    exit(0);
+            }
+ 
+        }
+ 
+ 
+        for (int i = 0; i < numberOfPintFood; i++) {
+            int value = Integer.parseInt(scanner.next());
+            int coordinateX = Integer.parseInt(scanner.next());
+            int coordinateY = Integer.parseInt(scanner.next());
+            if (Inputs.checkEntityPosition(coordinateX, coordinateY, boardSize)) {
+                exit(0);
+            }
+            pos[i + numberOfInsects] = coordinateX + " " + coordinateY;
+            EntityPosition foodEntityPosition = new EntityPosition(coordinateX, coordinateY);
+            boardgame.addEntity(new FoodPoint(foodEntityPosition, value));
+        }
+ 
+ 
+        for (int i = 0; i < (numberOfInsects + numberOfPintFood - 1); i++) {
+            for (int g = i + 1; g < (numberOfInsects + numberOfPintFood); g++) {
+                if (pos[i].equals(pos[g])) {
+                    System.out.println("Two entities in the same position");
+                    exit(0);
+                }
+            }
+        }
+ 
+ 
+        for (int i = 0; i < numberOfInsects; i++) {
+            Direction dir = allInsect[i].getBestDirection(boardgame.boardData, boardSize);
+            int sum = allInsect[i].travelDirection(dir, boardgame.boardData, boardSize);
+            System.out.println(all[i] + " " + dir.toString() + " " + sum);
+        }
+    }
+}
+enum InsectColor {
+    Red,
+    Green,
+    Blue,
+    Yellow;
+    public static InsectColor toColor(String s) throws InvalidInsectColorException {
+        switch (s) {
+            case "Red":
+                return Red;
+            case "Green":
+                return Green;
+            case "Blue":
+                return Blue;
+            case "Yellow":
+                return Yellow;
+            default:
+                System.out.println("Invalid insect color");
+                exit(0);
+        }
+        return Red;
+    }
+}
+/** insect colors */
+enum Direction {
+ 
+    N("North"),
+    E("East"),
+    S("South"),
+    W("West"),
+    NE("North-East"),
+    SE("South-East"),
+    NW("North-West"),
+    SW("South-West");
+    private String textRepresentation;
+    @Override
+    public String toString() {
+        return textRepresentation;
+    }
+    Direction(String directon) {
+        this.textRepresentation = directon;
+    } /**constructor*/
+ 
+}
+/** directions for insects */
+abstract class Message extends Exception {
+ 
+    public void onMessage() {
+        System.out.println(getMessage());
+        exit(0);
+    }
+}
+/** give message, when we have Exception */
+class InvalidBoardSizeExepction extends Message {
+    @Override
+    public String getMessage() {
+        System.out.println("Invalid board size");
+        return "Invalid board size";
+    }
+}
+/** give message, when we have invalid in board size */
+class InvalidNumberOfInsectsException extends Message {
+    @Override
+    public String getMessage() {
+        System.out.println("Invalid number of insects");
+        return "Invalid number of insects";
+    }
+}
+/** give message, when we have invalid  number of insect*/
+class InvalidNumberOfFoodPointsException extends Message {
+    @Override
+    public String getMessage() {
+        System.out.println("Invalid number of food points");
+        return "Invalid number of food points";
+    }
+}
+/** give message, when we have invalid number of food point  */
+class InvalidInsectColorException extends Message {
+    @Override
+    public String getMessage() {
+        return "Invalid insect color";
+    }
+}
+/** give message, when we have invalid color*/
+class InvalidInsectTypeException extends Message {
+    @Override
+    public String getMessage() {
+        return "Invalid insect type";
+    }
+}
+/** give message, when we have another type of insect */
+class InvalidEntityPositionException extends Message {
+    @Override
+    public String getMessage() {
+        System.out.println("Invalid entity position");
+        return "Invalid entity position";
+    }
+}
+/** give message, when we have invalid position exception*/
+class DuplicateInsectsException extends Message {
+    @Override
+    public String getMessage() {
+        return "Duplicate insects";
+    }
+}
+/** give message, when we have two points of food or insect in one position*/
+class TwoEntitiesInTheSamePositionException extends Message {
+    @Override
+    public String getMessage() {
+        return "Two entities in the same position";
+    }
+}
+/** give message, when we have two insects*/
+class EntityPosition {
+    private int x;
+    private int y;
+    @Override
+    public String toString() {
+        return x + " " + y;
+    }
+ 
+    public int getX() {
+        return x;
+    }
+ 
+    public int getY() {
+        return y;
+    }
+ 
+    public EntityPosition(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+/** constructor with coordinate int x,y */
+}
+/** class with our coordinate*/
+abstract class BoardEntity {
+    protected EntityPosition position;
+}
+/** class with class of our coordinate*/
+abstract class Insect extends BoardEntity {
+    public InsectColor insectColor;
+    public Insect(EntityPosition position, String color) throws  InvalidInsectColorException,
+            InvalidEntityPositionException {
+        try {
+            this.insectColor = insectColor.valueOf(color);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidInsectColorException();
+        }
+        try {
+            this.position = position;
+        } catch (IllegalArgumentException e) {
+            throw new InvalidEntityPositionException();
+        }
+    } /**constructor*/
+ 
+    public Direction getBestDirection(Map<String, BoardEntity> boardData, int boardSize) {
+        return null;
+    }
+ 
+    public abstract int travelDirection(Direction dir, Map<String, BoardEntity> boardData, int boardSize);
+ 
+}
+/** class with color for insect and position.
+ * with methods to find direction and value of insect*/
+class Board {
+    public Map<String, BoardEntity> boardData = new HashMap<>();
+    public int boardsize;
+    public void addEntity(BoardEntity entity) {
+        boardData.put(entity.position.toString(), entity);
+    }
+    public BoardEntity getEntity(String str) {
+        return boardData.get(str);
+    }
+}
+/** class with our coordinate, insect and point of food*/
+class Butterfly extends Insect implements OrthogonalMoving {
+    public Direction getBestDirection(Map<String, BoardEntity> boardData, int boardSize) {
+        Direction[] direction = Direction.values();
+        int maxValue = 0;
+        int maxValued = 0;
+        Direction bestdir = Direction.N;
+        Direction ourDirection;
+        for (Direction dir:direction) {
+            if ((dir == Direction.E) || (dir == Direction.N) || (dir == Direction.S) || (dir == Direction.W)) {
+                maxValue = max(getOrthogonalDirectionVisibleValue(dir, position, boardData, boardSize), maxValue);
+                if (maxValue != maxValued) {
+                    bestdir = dir;
+                    maxValued = maxValue;
+                }
+            }
+        }
+        return bestdir;
+    }
+    public Butterfly(EntityPosition position, String Color) throws  InvalidInsectColorException,
+            InvalidEntityPositionException {
+        super(position, Color);
+    } /**constructor*/
+    public int travelDirection(Direction dir, Map<String, BoardEntity> boardData, int boardSize) {
+        return travelOrthogonally(dir, position, insectColor, boardData, boardSize);
+    }
+}
+/** class with butterfly and their methods: going orthogonally*/
+class Ant extends Insect implements OrthogonalMoving, DiagonalMoving {
+    public Direction getBestDirection(Map<String, BoardEntity> boardData, int boardSize) {
+        Direction[] direction = {Direction.N, Direction.E, Direction.S, Direction.W, Direction.NE, Direction.SE,
+                Direction.SW, Direction.NW};
+        int maxValue = 0;
+        int maxValued = 0;
+        Direction bestdir = Direction.N;
+        Direction ourDirection;
+        for (Direction dir:direction) {
+            if ((dir == Direction.E) || (dir == Direction.N) || (dir == Direction.S) || (dir == Direction.W)) {
+                maxValue = max(getOrthogonalDirectionVisibleValue(dir, position, boardData, boardSize), maxValue);
+                if (maxValue != maxValued) {
+                    bestdir = dir;
+                    maxValued = maxValue;
+                }
+            }
+            if ((dir == Direction.SE) || (dir == Direction.NE) || (dir == Direction.SW) || (dir == Direction.NW)) {
+                maxValue = max(getDiagonalDirectionVisibleValue(dir, position, boardData, boardSize), maxValue);
+                if (maxValue != maxValued) {
+                    bestdir = dir;
+                    maxValued = maxValue;
+                }
+            }
+        }
+        return bestdir;
+    }
+ 
+    public int travelDirection(Direction dir, Map<String, BoardEntity> boardData, int boardSize) {
+        if ((dir == Direction.E) || (dir == Direction.N) || (dir == Direction.S) || (dir == Direction.W)) {
+            return travelOrthogonally(dir, position, insectColor, boardData, boardSize);
+        } else {
+            return travelDiagonall(dir, position, insectColor, boardData, boardSize);
+        }
+    }
+    public Ant(EntityPosition position, String color) throws  InvalidInsectColorException,
+            InvalidEntityPositionException {
+        super(position, color);
+    } /**constructor*/
+ 
+}
+/** class Ant and their methods: going orthogonally and diagonally*/
+class Spider extends Insect implements DiagonalMoving {
+    public Spider(EntityPosition position, String Color) throws
+            InvalidInsectColorException, InvalidEntityPositionException {
+        super(position, Color);
+    } /**constructor*/
+    public Direction getBestDirection(Map<String, BoardEntity> boardData, int boardSize) {
+        Direction[] direction = {Direction.NE, Direction.SE, Direction.NW, Direction.SW};
+        int maxValue = 0;
+        int maxValued = 0;
+        Direction bestdir = Direction.NE;
+        Direction ourDirection;
+        for (Direction dir:direction) {
+            if ((dir == Direction.SE) || (dir == Direction.NE) || (dir == Direction.SW) || (dir == Direction.NW)) {
+                maxValue = max(getDiagonalDirectionVisibleValue(dir, position, boardData, boardSize), maxValue);
+                if (maxValue != maxValued) {
+                    bestdir = dir;
+                    maxValued = maxValue;
+                }
+            }
+        }
+ 
+        return bestdir;
+    }
+    public int travelDirection(Direction dir, Map<String, BoardEntity> boardData, int boardSize) {
+            return travelDiagonall(dir, position, insectColor, boardData, boardSize);
+        }
+}
+/** class Spider and their methods: going diagonally*/
+class Grasshopper extends Insect {
+    public Grasshopper(EntityPosition position, String Color) throws  InvalidInsectColorException,
+            InvalidEntityPositionException {
+        super(position, Color);
+    } /**constructor*/
+    public Direction getBestDirection(Map<String, BoardEntity> boardData, int boardSize) {
+        Direction[] direction = {Direction.N, Direction.E, Direction.S, Direction.W};
+        int maxValue = 0;
+        int maxValued = 0;
+        Direction bestdir = Direction.N;
+        Direction ourDirection;
+        for (Direction dir:direction) {
+            if ((dir == Direction.E) || (dir == Direction.N) || (dir == Direction.S) || (dir == Direction.W)) {
+                maxValue = max(getGrasshopperDirection(dir, position, boardData, boardSize), maxValue);
+                if (maxValue != maxValued) {
+                    bestdir = dir;
+                    maxValued = maxValue;
+                }
+            }
+        }
+        return bestdir;
+    }
+    /**recomed how going diagonal and take max food*/
+    public int getGrasshopperDirection(Direction dir, EntityPosition entityPosition,
+                                       Map<String, BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case N:
+                int sum = 0;
+                for (int i = entityPosition.getX(); i > 0; i = i - 2) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(entityPosition.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                    }
+                }
+                return sum;
+            case S:
+                int sum1 = 0;
+                for (int i = entityPosition.getX(); i <= (boardSize); i = i + 2) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(entityPosition.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum1;
+            case E:
+                int sum2 = 0;
+                for (int i = entityPosition.getY(); i <= (boardSize); i = i + 2) {
+                    String coordinate = Integer.toString(entityPosition.getX())  + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum2;
+            case W:
+                int sum3 = 0;
+                for (int i = entityPosition.getY(); i > 0; i = i - 2) {
+                    String coordinate = Integer.toString(entityPosition.getX())  + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum3;
+        }
+        return 0;
+    }
+    /**recomed how going diagonal and take max food*/
+    public int travelDirection(Direction dir, Map<String, BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case N:
+                int sum = 0;
+                for (int i = position.getX(); i > 0; i = i - 2) {
+                    String coordinate = i + " " + position.getY();
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(position.toString());
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            break;
+                        }
+                    }
+                }
+                boardData.remove(position.toString());
+                return sum;
+            case S:
+                int sum1 = 0;
+                for (int i = position.getX(); i <= (boardSize); i = i + 2) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(position.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(position.toString());
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(position.toString());
+                            return sum1;
+                        }
+                    }
+                }
+                boardData.remove(position.toString());
+                return sum1;
+            case E:
+                int sum2 = 0;
+                for (int i = position.getY(); i <= (boardSize); i = i + 2) {
+                    String coordinate = Integer.toString(position.getX()) + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(position.toString());
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(position.toString());
+                            return sum2;
+                        }
+                    }
+                }
+                boardData.remove(position.toString());
+                return sum2;
+            case W:
+                int sum3 = 0;
+                for (int i = position.getY(); i > 0; i = i - 2) {
+                    String coordinate = Integer.toString(position.getX()) + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(position.toString());
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(position.toString());
+                            return sum3;
+                        }
+                    }
+                }
+                boardData.remove(position.toString());
+                return sum3;
+        }
+        return 0;
+    }
+} /**Say how  going through one cell orthogonally and take food point after that delete our insect*/
+/** class Grasshopper and their methods: going through one cell orthogonally*/
+interface OrthogonalMoving {
+    public default int getOrthogonalDirectionVisibleValue(Direction dir, EntityPosition entityPosition,
+                                                          Map<String, BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case N:
+                int sum = 0;
+                for (int i = entityPosition.getX() - 1; i > 0; i--) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(entityPosition.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                    }
+                }
+                return sum;
+            case S:
+                int sum1 = 0;
+                for (int i = entityPosition.getX(); i <= boardSize; i++) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(entityPosition.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum1;
+            case E:
+                int sum2 = 0;
+                for (int i = entityPosition.getY(); i <= boardSize; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX())  + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum2;
+            case W:
+                int sum3 = 0;
+                for (int i = entityPosition.getY() - 1; i > 0; i--) {
+                    String coordinate = Integer.toString(entityPosition.getX())  + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum3;
+        }
+        return 0;
+    }
+    /**recomed how going diagonal and take max food*/
+    public default int travelOrthogonally(Direction dir, EntityPosition entityPosition, InsectColor color,
+                                          Map<String, BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case N:
+                int sum = 0;
+                for (int i = entityPosition.getX() - 1; i > 0; i--) {
+                    String coordinate = i + " " + entityPosition.getY();
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != color) {
+                            boardData.remove(entityPosition.toString());
+                            return sum;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum;
+            case S:
+                int sum1 = 0;
+                for (int i = entityPosition.getX(); i <= boardSize; i++) {
+                    String coordinate = Integer.toString(i) + " " + Integer.toString(entityPosition.getY());
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum1;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum1;
+            case E:
+                int sum2 = 0;
+                for (int i = entityPosition.getY(); i <= boardSize; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX()) + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum2;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum2;
+            case W:
+                int sum3 = 0;
+                for (int i = entityPosition.getY() - 1; i > 0; i--) {
+                    String coordinate = Integer.toString(entityPosition.getX()) + " " + Integer.toString(i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum3;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum3;
+        }
+        return 0;
+    }
+} /**Say how  going Orthogonal and take food point after that delete our insect*/
+ /**  class, which say how to go Orthogonal*/
+interface DiagonalMoving {
+    public default int getDiagonalDirectionVisibleValue(Direction dir, EntityPosition entityPosition, Map<String,
+            BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case NE:
+                int sum1 = 0;
+                int maxI1 = min(entityPosition.getX(), boardSize - entityPosition.getY() + 1);
+                for (int i = 0; i <= maxI1; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() - i)
+                            + " " + Integer.toString(entityPosition.getY() + i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum1;
+            case NW:
+                int sum = 0;
+                int maxI = min(entityPosition.getX(), entityPosition.getY());
+                for (int i = 0; i < maxI; i++) {
+                    String coordinate = Integer.toString((entityPosition.getX() - i))
+                            + " " + Integer.toString((entityPosition.getY() - i));
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                    }
+                }
+                return sum;
+            case SE:
+                int sum2 = 0;
+                int maxI2 = min(boardSize - entityPosition.getX() + 1, boardSize - entityPosition.getY() + 1);
+                for (int i = 0; i < maxI2; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() + i)
+                            + " " + Integer.toString(entityPosition.getY() + i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum2;
+            case SW:
+                int sum3 = 0;
+                int maxI3 = min(boardSize - entityPosition.getX() + 1, entityPosition.getY());
+                for (int i = 0; i < maxI3; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() + i)
+                            + " " + Integer.toString(entityPosition.getY() - i);
+                    BoardEntity h = boardData.get(coordinate);
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                    }
+                }
+                return sum3;
+        }
+        return 0;
+    }
+    /**recomed how going diagonal and take max food*/
+    public default int travelDiagonall(Direction dir, EntityPosition entityPosition, InsectColor color, Map<String,
+            BoardEntity> boardData, int boardSize) {
+        switch (dir) {
+            case NE:
+                int sum1 = 0;
+                int maxI1 = min(entityPosition.getX(), boardSize - entityPosition.getY() + 1);
+                for (int i = 1; i < maxI1; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() - i) + " "
+                            + Integer.toString(entityPosition.getY() + i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum1 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum1;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum1;
+            case NW:
+                int sum = 0;
+                int maxI = min(entityPosition.getX(), entityPosition.getY());
+                for (int i = 1; i < maxI; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() - i) + " "
+                            + Integer.toString(entityPosition.getY() - i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != color) {
+                            boardData.remove(entityPosition.toString());
+                            return sum;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum;
+            case SE:
+                int sum2 = 0;
+                int maxI2 = min(boardSize - entityPosition.getX() + 1, boardSize - entityPosition.getY() + 1);
+                for (int i = 1; i < maxI2; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() + i)
+                            + " " + Integer.toString(entityPosition.getY() + i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum2 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum2;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum2;
+            case SW:
+                int sum3 = 0;
+                int maxI3 = min(boardSize - entityPosition.getX() + 1, entityPosition.getY());
+                for (int i = 1; i < maxI3; i++) {
+                    String coordinate = Integer.toString(entityPosition.getX() + i)
+                            + " " + Integer.toString(entityPosition.getY() - i);
+                    BoardEntity h = boardData.get(coordinate);
+                    BoardEntity g = boardData.get(entityPosition.toString());
+                    if (h instanceof FoodPoint) {
+                        sum3 += ((FoodPoint) h).value;
+                        boardData.remove(coordinate);
+                    }
+                    if (h instanceof Insect) {
+                        if (((Insect) h).insectColor != ((Insect) g).insectColor) {
+                            boardData.remove(entityPosition.toString());
+                            return sum3;
+                        }
+                    }
+                }
+                boardData.remove(entityPosition.toString());
+                return sum3;
+        }
+        return 0;
+    }
+    /**Say how  going diagonal and take food point after that delete our insect*/
+}
+/**  class, which say how to go Diagonal*/
+class FoodPoint extends BoardEntity {
+    int value;
+    public FoodPoint(EntityPosition position, int value) {
+        this.value = value;
+        this.position = position;
+    }
+ 
+}
+/**  class food point with value and coordinate*/
+class Inputs {
+    public static boolean checkEntityPosition(int x, int y, int size) throws InvalidEntityPositionException {
+        if ((x > size) || (y > size) || (x <= 0) || (y <= 0)) {
+            System.out.println("Invalid entity position");
+            return true;
+        }
+        return false;
+    }
+    /** check that x and y is smaller than size
+     input int x,y,size*/
+}
+/** check that position on the board*/
